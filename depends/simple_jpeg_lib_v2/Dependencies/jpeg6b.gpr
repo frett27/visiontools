@@ -1,0 +1,22 @@
+library project jpeg6b is
+	
+   Version := "1";
+
+   for Languages use ("C");
+   -- for Interfaces use ("jpeglib.h");
+
+   for Library_Name use "jpeg";
+   for Library_Kind use "static";
+--   for Library_Kind use "static";
+--   for library_version use "libjpeg6b.so." & Version;
+   for Source_Dirs use ("jpeg6b");
+   for Source_Files use ("jcapimin.c","jcapistd.c","jccoefct.c","jccolor.c","jcdctmgr.c","jchuff.c","jcinit.c","jcmainct.c","jcmarker.c","jcmaster.c","jcomapi.c","jcparam.c","jcphuff.c","jcprepct.c","jcsample.c","jctrans.c","jdapimin.c","jdapistd.c","jdatadst.c","jdatasrc.c","jdcoefct.c","jdcolor.c","jddctmgr.c","jdhuff.c","jdinput.c","jdmainct.c","jdmarker.c","jdmaster.c","jdmerge.c","jdphuff.c","jdpostct.c","jdsample.c","jdtrans.c","jerror.c","jfdctflt.c","jfdctfst.c","jfdctint.c","jidctflt.c","jidctfst.c","jidctint.c","jidctred.c","jquant1.c","jquant2.c","jutils.c","jmemmgr.c","jmemansi.c");
+   for Object_Dir use "build";
+   for Library_Dir use "lib";
+
+   package Compiler is
+	for Default_switches("C") use ("-g");
+   end Compiler;
+
+end jpeg6b;
+

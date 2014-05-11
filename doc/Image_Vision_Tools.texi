@@ -1,0 +1,750 @@
+\input texinfo @c -*-texinfo-*-
+@c %**start of header
+@setfilename Image_Vision_Tools.info
+@settitle Developper Manual for vision tools
+@setchapternewpage odd
+@c %**end of header
+
+@titlepage
+@title Ada Image Vision Tools
+@author Patrice Freydiere
+
+@page 
+@vskip 0pt plus 1filll
+ Copyright @copyright{} 2005-2006 Patrice Freydiere
+@end titlepage
+
+
+@node top, Introduction, (dir), (dir)
+
+@menu
+* Introduction::                Introduction
+* Images::                      Image manipulation
+* Image I/O::                   Image reading and writing
+* Morphological Operators::     Using morphological operators
+* Image Clustering::            Finding connex parts in images
+* Image Vectorisation::         Vectorize images into lines / polygons
+* Various tools::               Miscellenious image manipulation functions
+* Linking/Compiling with vision library::  How to compile with the vision library
+@end menu
+
+@node Introduction, Images, top, top
+@chapter Introduction
+
+This library include programming tools for image recognition and manipulation. Several tools are included in thoses packages :
+
+@itemize @bullet
+
+@item Image definition : Color / Greyscale / Binary
+@item Image Reading / Writing in PPM or JPEG
+@item Morphological Operator (with fast implementation using dynamic programming)
+@item Image clustering (finding connected areas), Median finding
+@item Vectorisation
+@item Sobel Operator
+@item Various Image treatments as Rotation/Thresholding ..
+
+@end itemize
+
+To be efficient and simple, thoses tools specifically works in memory.
+
+@node Images, Image I/O, Introduction, top
+@chapter Images
+
+Ada Vision Tools support Colored, Greyscale, Binary and Grid images. Image Package permit defining the image pixels and getting pixel values. Images are implemented as Controlled Type for ease the use of images. 
+
+As the Images can be passed as a function parameter, it is important that an image copy is light, in order to save memory. Then reference counter has been added to share the copies content, then a content copy is done once the image is modified. This implies a small overhead in the setpixel function but is not significant as actual processors correctly handle the shared flag in the L1/L2 processor cache. 
+
+Associated Image functions :
+
+@example
+
+   ----------
+   -- Init --
+   ----------
+
+   --
+   -- initialisation d'une image
+   --
+   procedure Init (Img           : in out Unbounded_Image;
+                   Width, Height : in     Positive);
+
+   ---------------
+   -- Get_Pixel --
+   ---------------
+
+   --
+   -- récupère la valeur d'un pixel
+   --
+   function Get_Pixel (M   : in Unbounded_Image;
+                       Col :    Column_Index_Type;
+                       Row :    Row_Index_Type)
+                      return Pixel_Value_Type;
+
+   ---------------
+   -- Set_Pixel --
+   ---------------
+
+   --
+   -- définit la valeur d'un pixel de l'image
+   --
+   procedure Set_Pixel (M     : in out Unbounded_Image;
+                        Col   :        Column_Index_Type;
+                        Row   :        Row_Index_Type;
+                        Value :        Pixel_Value_Type);
+
+
+   -------------------------
+   -- Set_Pixel_Unbounded --
+   -------------------------
+
+   ---  Cette fonction permet de définir la valeur d'un pixel,
+   ---  sans se soucier des bords ..
+   ---  X, Y -> la position du pixel à définir
+   ---  Value -> la valeur du pixel à positionner
+
+   procedure Set_Pixel_Unbounded(M : in out Unbounded_image ;
+                                 X,Y:in Integer;
+                                 Value : in pixel_value_type);
+
+   -------------------------
+   -- Get_Pixel_unbounded --
+   -------------------------
+
+   --- Cette fonction permet de lire la valeur d'un pixel d'une image.
+   --- Si la lecture est réalisée
+   --- en dehors de l'image, la valeur Default est retournée
+   ---
+   ---  X, Y -> la position du pixel à définir
+   ---  Default -> la valeur du pixel à positionner
+
+   function Get_Pixel_unbounded(Img:in Unbounded_Image;
+                                X,Y: in Integer ;
+                                Default:in Pixel_Value_Type)
+                               return Pixel_Value_Type ;
+
+   ----------
+   -- Rows --
+   ----------
+
+   -- Image rows
+   function Rows (M : in Unbounded_Image) return Natural;
+
+   -------------
+   -- Columns --
+   -------------
+
+   -- getting Image columns number
+   function Columns (M : in Unbounded_Image) return Natural;
+
+
+   --------------
+   -- Set_Size --
+   --------------
+
+   -- redéfinit la taille d'une image
+   procedure Set_Size (Img          : in out Unbounded_Image;
+                       Width,Height :        Positive);
+
+@end example
+
+@node Image I/O, Morphological Operators, Images, top
+@chapter Image I/O
+
+
+Vision library contain a couple of I/O functions.
+
+@example
+
+   -- greyscale images ...
+
+   procedure Write_Image (FileName : String;
+                          Img: in Greyscale.Unbounded_Image);
+
+   procedure Read_Image(FileName : String;
+                        Img : in out Greyscale.Unbounded_Image);
+
+   procedure Read_Jpeg_Image(FileName:String;
+                             Img : out Greyscale.Unbounded_Image;
+                            Scale : in Integer := 1);
+
+   procedure Write_Jpeg_Image(FileName:String;
+                              Img : in Greyscale.Unbounded_Image);
+
+   -- binary images ...
+
+   procedure Write_Image (FileName : String;
+                          Img: in Binary.Unbounded_Image);
+
+   procedure Read_Image(FileName : String;
+                        Img : in out Binary.Unbounded_Image);
+
+   -- color images ...
+
+   procedure Read_Jpeg_Image(FileName:String;
+                             Img : out Color.Unbounded_Image;
+                            Scale : in Integer := 1);
+
+   procedure Write_Jpeg_Image(FileName:String;
+                              Img : in Color.Unbounded_Image);
+
+
+
+@end example
+
+
+
+@node Morphological Operators, Image Clustering, Image I/O, top
+@chapter Morphological Operators
+
+The morphological package perform the morphological operators on specific patterns or square patterns. Square patterns are a specific case where algorithms are optimised. 
+As generic operators take a o(m*n*pn*pm) complexity, square patterns operators take a o(m*n*pn).
+A fast implementation also increase the efficiency of the operation (Fast functions)
+
+Morphological operators takes greyscale images as parameters.
+
+all following operators are implemented :
+
+@itemize @bullet
+@item Dilate
+@item Erode
+@item TopHat
+@item Closing
+@item Opening
+@end itemize
+
+``-'' and ``+'' operator have been included for a per pixel operation.
+
+@example
+
+
+   -- fonctions génériques d'opérateurs morphologiques
+
+   function Dilate(Imgin : in Unbounded_image;
+                   Pattern : in Unbounded_image )
+                  return Unbounded_image;
+
+   -- fonctions génériques d'opérateurs morphologiques
+
+   function Dilate(Imgin : in Unbounded_image;
+                   Pattern : in Unbounded_image )
+                  return Unbounded_image;
+
+   function Erode(Imgin : in Unbounded_image;
+                  Pattern : in Unbounded_image)
+                 return Unbounded_image;
+
+   function TopHat(Imgin: in Unbounded_image;
+                   Pattern : in Unbounded_image )
+                  return Unbounded_image;
+
+   function Closing(Imgin: in Unbounded_image;
+                    Pattern : in Unbounded_image )
+                   return Unbounded_image;
+
+   function Opening(Imgin: in Unbounded_Image;
+                    Pattern : in Unbounded_image )
+                   return Unbounded_image;
+
+   -- opérateurs d'ajouts ou de combinaison des composantes de l'image
+
+   function "-"(Left,Right:in Unbounded_Image)
+               return Unbounded_Image;
+   function "+"(Left,Right:in Unbounded_Image)
+               return Unbounded_Image;
+
+   -- inverse l'image
+   function Inverse(Imgin : in Unbounded_Image)
+                   return Unbounded_Image;
+
+
+   -- implantation spécifique des Operateurs morphologiques
+   -- pour des patterns carres
+   -- beaucoup plus rapide qu'un pattern non carré
+
+   function Dilate(Imgin : in Unbounded_Image ; Size : in Integer )
+                        return Unbounded_Image;
+
+   function Erode(Imgin : in Unbounded_image ;Size : in Integer )
+                       return Unbounded_Image;
+   function TopHat(Imgin: in Unbounded_image ; Size : in Integer )
+                        return Unbounded_Image;
+
+   function Closing(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+   function Opening(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+   -- implantation rapide des opérateurs morphologiques pour des patterns carré
+   -- (utilise la programmation dynamique pour la recherche de maximaux)
+
+   function FastDilate(Imgin : in Unbounded_Image; Size : in Integer )
+                        return Unbounded_Image;
+
+   function FastErode(Imgin : in Unbounded_image; Size : in Integer )
+                     return Unbounded_Image;
+
+   function FastTopHat(Imgin: in Unbounded_image; Size : in Integer )
+                        return Unbounded_Image;
+
+   function FastClosing(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+   function FastOpening(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+
+   -- diverses fonctions intéressantes ..
+   -- utilisées dans les différents programmes
+
+   procedure PutPattern(Imgin : in out unbounded_image;
+                        Pattern : in unbounded_image;
+                        X,Y:Integer );
+
+   function GetMedian(M : unbounded_image;
+                      Pattern : unbounded_image;
+                      X, Y : integer )
+                     return pixel_value_type;
+
+
+   function Erode(Imgin : in Unbounded_image;
+                  Pattern : in Unbounded_image)
+                 return Unbounded_image;
+
+   function TopHat(Imgin: in Unbounded_image;
+                   Pattern : in Unbounded_image )
+                  return Unbounded_image;
+
+   function Closing(Imgin: in Unbounded_image;
+                    Pattern : in Unbounded_image )
+                   return Unbounded_image;
+
+   function Opening(Imgin: in Unbounded_Image;
+                    Pattern : in Unbounded_image )
+                   return Unbounded_image;
+
+   -- opérateurs d'ajouts ou de combinaison des composantes de l'image
+
+   function "-"(Left,Right:in Unbounded_Image)
+               return Unbounded_Image;
+   function "+"(Left,Right:in Unbounded_Image)
+               return Unbounded_Image;
+
+   -- inverse l'image
+   function Inverse(Imgin : in Unbounded_Image)
+                   return Unbounded_Image;
+
+
+   -- implantation spécifique des Operateurs morphologiques
+   -- pour des patterns carres
+   -- beaucoup plus rapide qu'un pattern non carré
+
+   function Dilate(Imgin : in Unbounded_Image ; Size : in Integer )
+                        return Unbounded_Image;
+
+   function Erode(Imgin : in Unbounded_image ;Size : in Integer )
+                       return Unbounded_Image;
+   function TopHat(Imgin: in Unbounded_image ; Size : in Integer )
+                        return Unbounded_Image;
+
+   function Closing(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+   function Opening(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+   -- implantation rapide des opérateurs morphologiques pour des patterns carré
+   -- (utilise la programmation dynamique pour la recherche de maximaux)
+
+   function FastDilate(Imgin : in Unbounded_Image; Size : in Integer )
+                        return Unbounded_Image;
+
+   function FastErode(Imgin : in Unbounded_image; Size : in Integer )
+                     return Unbounded_Image;
+
+   function FastTopHat(Imgin: in Unbounded_image; Size : in Integer )
+                        return Unbounded_Image;
+
+   function FastClosing(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+   function FastOpening(Imgin : in Unbounded_Image; Size : in Integer)
+                   return Unbounded_Image;
+
+
+   -- diverses fonctions intéressantes ..
+   -- utilisées dans les différents programmes
+
+   procedure PutPattern(Imgin : in out unbounded_image;
+                        Pattern : in unbounded_image;
+                        X,Y:Integer );
+
+   function GetMedian(M : unbounded_image;
+                      Pattern : unbounded_image;
+                      X, Y : integer )
+                     return pixel_value_type;
+
+@end example
+
+
+
+@node Image Clustering, Image Vectorisation, Morphological Operators, top
+@chapter Image Clustering
+
+Clustering function permit finding connex parts in images (called here a partition). Classify entry point numbered the connex parts into a grid image (each point handle the part number of the connex part). Keep_only_partition permit keeping only a couple of partition in the image.
+
+Other functions handles partitions manipulation.
+
+@example
+
+package Classification is
+
+   type Partition_Info is record
+      Minx, Miny : Natural := Natural'Last;
+      Maxx, Maxy : Natural := Natural'First;
+      NbPixels : Natural := 0;
+   end record;
+
+   type Partition_Array is array (Natural range <>) of Natural;
+
+   Null_Partition_Info : Partition_Info;
+
+   type Partition_Info_Array is
+     array (Natural range <>) of aliased Partition_Info;
+
+   type Partition_Info_Array_Access is access Partition_Info_Array;
+
+
+   --
+   --   Classification de zones dans une image
+   --   Chaque zone contigue de pixel est numérotée avec un nombre unique
+   --   dans l'image
+   --
+   --   Paramètres : Img , image contenant des zones contigues
+   --
+   --    La fonction retourne
+   --      - la classification des zones dans un Grid  ( Partitioned_image )
+   --      - Le nombre de partitions trouvées dans l'image ( Partition_Number )
+   --
+   procedure Classify (Img : in Greyscale.Unbounded_Image;
+                       Partitioned_Image : out Grid.Unbounded_Image;
+                       Partition_Number : out Natural);
+
+   --
+   --  Cette fonction convertie un Grid Naturel en Image ... ,
+   --  celle ci réduit le nombre de partition à 255.
+   --     (cas d'image en valeur de gris de 255 niveaux)
+   --
+   --  Paramètre en entrée :
+   --         Grid : L'image à convertir
+   --
+   --     Retour : L'image correspondant aux partitions
+   --     exceptions : Too_Many_Partition -> lorsque le nombre de
+   --                                        partition dépasse la
+   --                                        capacité de l'image
+   function GridToImg (G : Grid.unbounded_image)
+                      return Greyscale.Unbounded_Image;
+
+   Too_Many_Partitions : exception;
+
+   --
+   --  Cette fonction récupère les informations sur les partitions de l'image ...
+   --    En entrée, on demande l'image classifiée, et le nombre de partitions
+   --
+   --    En Sortie, la fonction retourne un tableau d'information
+   --               pour chaque partition
+   --
+   --
+   function Construct_Grid_Infos (G : in Grid.Unbounded_Image;
+                                  Partition_Number : Natural)
+                                 return Partition_Info_Array;
+
+   --
+   --  Cette fonction liste toutes les partitions utilisées
+   --
+   --    En entrée, on prends le tableau d'information sur les partitions
+   --
+   --    En sortie, on liste les partitions
+   --
+   function List_Partitions (S : Partition_Info_Array)
+                            return Partition_Array;
+
+   --
+   --  Cette fonction retourne la partition ayant le plus de pixels
+   --
+   function Calculate_Max_Pixel_Partition (G : Grid.Unbounded_Image;
+                                           N : Natural)
+                                          return Natural;
+
+
+   type Partition_Comparator is
+     access function (P1, P2 : Partition_Info) return Boolean;
+
+
+   --
+   --  Fonction de comparaisons pouvant être
+   --  utilisées dans la classification des partitions
+   --
+   --
+   function CompareHLRatio (P1, P2 : Partition_Info) return Boolean;
+   function ComparePXNumber (P1, P2 : Partition_Info) return Boolean;
+
+
+   --
+   --  Cette fonction classe les partitions du tableau en
+   --  fonction du rapport Largeur sur Hauteur
+   --
+   --  Les partitions triées sont retournées
+   --   dans un tableau, par ordre croissant en fonction
+   --   de la fonction de comparaison passée en paramètres
+   --
+   function Order_Partitions (S : Partition_Info_Array;
+                              P : Partition_Comparator)
+                             return Partition_Array;
+
+   --
+   --   Cette fonction ne garde dans le grid ,
+   --   que les partitions indiquées dans le tableau Partition_Array
+   function Keep_Only_Partitions (G : Grid.Unbounded_Image;
+                                  Partition_Number : Natural;
+                                  P : Partition_Array;
+                                  Nodata_Partition : Natural )
+                                return Grid.Unbounded_Image;
+
+
+   --
+   --  Fusion de deux partitions dans un grid.
+   --    La partition "Partition" est fusionnée avec New_Partition.
+   --
+   --      G : Nom de l'image dans laquelle on souhaite fusionner des partitions
+   --      Partition :  Numéros de la partition que l'on souhaite fusionner
+   --      New_Partition : Numéros  de la partition à laquelle on souhaite
+   --                      fusionner "Partition"
+   function Merge_Partition (G : Grid.Unbounded_Image;
+                             Partition : Natural;
+                             New_Partition : Natural)
+                            return Grid.Unbounded_Image;
+
+   --
+   --  Version optimisée dans laquelle, on ne parcours que l'étendue de la partition
+   --
+   --   Le paramètre S : permet de connaitre l'étendue de la partition et
+   --                    son positionnement dans l'image
+   --                    Cela permet d'accélérer les calculs
+   --
+   function Merge_Partition (G : Grid.Unbounded_Image;
+                             Partition : Natural;
+                             New_Partition : Natural;
+                             S : Partition_Info)
+                            return Grid.Unbounded_Image;
+
+
+   --  Cette fonction renumerote les partitions de l'image ..
+   --  de 1 à nb de partition de l'image
+   --  Procedure permettant de renumeroter les partitions à l'interieur de l'image
+   --  Chaque zone est renumerotée à partir de 1,
+   --
+   --   Paramètres en entrée : G -> la définition des zones
+   --              en sortie : Result -> la définition des zones renumérotée
+   --              Partition_Number : Nombre de partitions trouvées dans l'image
+   --
+   procedure ReNumber_Grid (G : in Grid.Unbounded_Image;
+                            Result : out Grid.Unbounded_Image;
+                           Partition_Number : out Natural);
+
+
+
+   --
+   --   Cette fonction calcule la distance à l'exterieur des différentes partitions
+   --
+   --    Paramètres en entrée : G -> la définition des partitions
+   --
+   --    La fonction retourne un grid , indiquant, pour un pixel de la partition, la
+   --    distance minimale pour "sortir" de la partition
+   --
+   function Construct_Exterior_Distance (G : in Grid.Unbounded_Image)
+                                        return Grid.Unbounded_Image;
+
+
+
+end Classification;
+
+
+
+@end example
+
+@node Image Vectorisation, Various tools, Image Clustering, top
+@chapter Image Vectorisation
+
+This package permit transform points position into lines, describing a vectorisation tolerance. 
+
+@example
+
+package Vectorisation is
+
+   ---
+   --- Définition des types utilisés pour la généralisation
+   ---
+
+   subtype Coord is Integer;
+
+   type Point is record
+      X : Coord;
+      Y : Coord;
+   end record;
+
+   type Point_Array is array(Natural range <>) of Point;
+
+   type Point_Array_Access is access Point_Array;
+
+   subtype Distance is Float;
+
+
+   --
+   -- cette fonction calcule la distance entre deux points
+   --
+   function Calc_Distance (P1, P2 : Point)
+                          return Distance;
+
+   --
+   -- cette fonction calcule la distance d'un point à une droite
+   --
+   function Calc_Distance (Point_Origine ,
+                             Point_Destination,
+                             P         : Point) return Distance;
+
+   --
+   -- recherche le premier index qui satisfait encore
+   -- le principe du tube
+   --
+   function Recherche_Index_Suivant (P         : Point_Array_Access;
+                                     Index     : Natural;
+                                     Tolerance : Distance)
+                                   return Natural;
+
+
+
+   -- Fonction de généralisation du tableau de points
+   -- par la méthode du corridor, en indiquant la distance
+   -- max des points au corridor
+
+   function Generalise( P : Point_Array_Access;
+                        D : Distance ) return Point_Array_Access;
+
+   -- libération d'un contour vectoriel
+   procedure Free is
+      new Ada.Unchecked_Deallocation(Point_Array, Point_Array_Access);
+
+private
+
+   Too_Much_Points_In_Result : exception;
+
+
+end Vectorisation;
+
+@end example
+
+@node Various tools, Linking/Compiling with vision library, Image Vectorisation, top
+@chapter Various Tools
+
+@section Sobel
+
+@example
+   -- Cette fonction effectue une analyse de sobel
+   -- horizontale pour l'image considérée
+   function Horizontal_Sobel(Img : Unbounded_Image) return Unbounded_Image;
+
+   function Vertical_Sobel(Img : Unbounded_Image) return Unbounded_Image;
+@end example
+
+@section Miscellenious
+
+This package provide several tools on imaging such as rotating, resizing using different methods (bilinear, bicubic).
+
+@example
+
+   -----------------
+   -- MaxContrast --
+   -----------------
+   --- Cette fonction rééchelonne l'intensité
+   --- de l'image sur toute la plage de valeur
+
+   procedure MaxContrast(Img: in out Unbounded_Image) ;
+
+
+   -----------------
+   -- MaxContrast --
+   -----------------
+   --- Cette fonction applique un facteur
+   --- multiplicatif à l'intensité de l'image
+
+   function "*"(Left: in Unbounded_Image;
+                Right : in Natural) return Unbounded_Image;
+
+
+
+   ---------------
+   -- Threshold --
+   ---------------
+
+   --- Seuillage d'une image en fonction d'un niveau donné
+   --- tout ce qui est en dessous du seuil, est converti en noir
+   --- tout ce qui est en dessus du seuil est converti en blanc
+
+   function Threshold(Img : Unbounded_Image ;
+                      Seuil : Pixel_Value_Type) return Binary.Unbounded_Image;
+
+
+   ------------------
+   -- To_GreyScale --
+   ------------------
+
+   function To_GreyScale(Img : Binary.Unbounded_Image)
+                        return Greyscale.Unbounded_Image;
+
+
+   ---------------
+   -- Rotate_90 --
+   ---------------
+   type Direction is (Left, Right);
+
+   function Rotate_90(Img : Unbounded_Image;
+                      Dir : Direction)
+     return Unbounded_Image;
+
+   ---------------------
+   -- Resize_Bilinear --
+   ---------------------
+   function Resize_Bilinear( U : Color.Unbounded_Image ;
+                            New_Width : Column_Index_Type;
+                            New_Height : Row_Index_Type)
+                          return Color.Unbounded_image;
+
+
+   ---------------------
+   -- Resize_Bicubic  --
+   ---------------------
+   function Resize_Bicubic( U : Color.Unbounded_Image ;
+                            New_Width : Column_Index_Type;
+                            New_Height : Row_Index_Type)
+                          return Color.Unbounded_image;
+
+
+
+@end example
+
+
+@node Linking/Compiling with vision library,  , Various tools, top
+@chapter Linking/Compiling with vision library
+
+Ada vision library is provided with a static WIN32 library, this library include the jpeglib binaries in order to simplify the compilation process.
+
+To compile a program, use the -A to specify the library .ads directory, and link the lib with the -lvision arg
+
+@example
+
+gnatmake PROGRAM -Avision -largs -lvision
+
+@end example
+
+@bye

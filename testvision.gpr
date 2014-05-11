@@ -1,0 +1,20 @@
+with "vision.gpr";
+
+project TestVision is
+
+   for Source_Dirs use ("test");
+   for Object_Dir use "build";
+   for Main use ("test_image.adb","test_morphological.adb","test_seuillage_adaptatif.adb","testvectorisation.adb");
+
+   package Linker is
+   end Linker;
+
+   package Compiler is
+   end Compiler;
+
+   package Binder is
+      for Default_Switches ("ada") use ("-E", "-r");
+   end Binder;
+
+end TestVision;
+

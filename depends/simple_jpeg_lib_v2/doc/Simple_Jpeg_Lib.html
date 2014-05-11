@@ -1,0 +1,197 @@
+<html lang="en">
+<head>
+<title>SIMPLE_JPEG_LIB MANUAL</title>
+<meta http-equiv="Content-Type" content="text/html">
+<meta name="description" content="SIMPLE_JPEG_LIB MANUAL">
+<meta name="generator" content="makeinfo 4.8">
+<link title="Top" rel="top" href="#Top">
+<link href="http://www.gnu.org/software/texinfo/" rel="generator-home" title="Texinfo Homepage">
+<meta http-equiv="Content-Style-Type" content="text/css">
+<style type="text/css"><!--
+  pre.display { font-family:inherit }
+  pre.format  { font-family:inherit }
+  pre.smalldisplay { font-family:inherit; font-size:smaller }
+  pre.smallformat  { font-family:inherit; font-size:smaller }
+  pre.smallexample { font-size:smaller }
+  pre.smalllisp    { font-size:smaller }
+  span.sc    { font-variant:small-caps }
+  span.roman { font-family:serif; font-weight:normal; } 
+  span.sansserif { font-family:sans-serif; font-weight:normal; } 
+--></style>
+</head>
+<body>
+<h1 class="settitle">SIMPLE_JPEG_LIB MANUAL</h1>
+<div class="node">
+<p><hr>
+<a name="Top"></a>
+Next:&nbsp;<a rel="next" accesskey="n" href="#Introduction">Introduction</a>,
+Previous:&nbsp;<a rel="previous" accesskey="p" href="#dir">(dir)</a>,
+Up:&nbsp;<a rel="up" accesskey="u" href="#dir">(dir)</a>
+
+</div>
+
+<!-- node-name,  next,  previous,  up -->
+<ul class="menu">
+<li><a accesskey="1" href="#Introduction">Introduction</a>:                 What is Imgsvr ... 
+<li><a accesskey="2" href="#Compiling">Compiling</a>
+<li><a accesskey="3" href="#Simple_005fJpeg_005fLib">Simple_Jpeg_Lib</a>
+</ul>
+
+<div class="node">
+<p><hr>
+<a name="Introduction"></a>
+Next:&nbsp;<a rel="next" accesskey="n" href="#Compiling">Compiling</a>,
+Previous:&nbsp;<a rel="previous" accesskey="p" href="#Top">Top</a>,
+Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
+
+</div>
+
+<!-- node-name,     next,           previous, up -->
+<h2 class="chapter">1 Introduction to the simple_jpeg_lib</h2>
+
+<p><a name="index-Introduction-1"></a>
+<strong>Simple_Jpeg_Lib</strong> is a simple library that permit to load, save and use jpeg files. This library provide a simple set of functions for jpeg manipulation.
+
+<div class="node">
+<p><hr>
+<a name="Compiling"></a>
+Next:&nbsp;<a rel="next" accesskey="n" href="#Simple_005fJpeg_005fLib">Simple_Jpeg_Lib</a>,
+Previous:&nbsp;<a rel="previous" accesskey="p" href="#Introduction">Introduction</a>,
+Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
+
+</div>
+
+<h2 class="chapter">2 Compiling Ada programs with the Simple_Jpeg_Lib</h2>
+
+<p>Simple_Jpeg_Lib contains a small c wrapper to easy the binding with the jpeglib. this wapper <strong>c_simple_jpeg_lib.c</strong> must be compiled with the same compiler of the jpeglib, or the same compile options (internal jpeglib structures must have the same definition in the jpeglib and in the wrapper).
+
+<h4 class="subsection">2.0.1 compiling the simple_jpeg_lib</h4>
+
+<pre class="verbatim">
+
+rem
+rem Simple script for compiling Ada Jpeg Bindings
+rem 
+
+gcc -c -g c_simple_jpeg_lib.c -I../Dependencies/jpeg-6b
+
+gnatmake -c -g -gnatf simple_jpeg_lib.adb
+
+</pre>
+
+<h4 class="subsection">2.0.2 compiling a program with the simple_jpeg_lib</h4>
+
+<p>To compile your program, you must first compile the simple_jpeg_lib, and then link to your program :
+     <ul>
+<li>c_simple_jpeg_lib.o
+<li>libjpeglib.a
+</ul>
+
+   <p>Example :
+
+<pre class="example">     
+     gcc -c  ../src/c_simple_jpeg_lib.c -I../Dependencies/jpeg-6b
+     
+     gnatmake -g -gnatf -gnatov -gnaty -I../src test_jpeg_reader -largs c_simple_jpeg_lib.o -ljpeg -bargs -E
+     
+     
+</pre>
+   <div class="node">
+<p><hr>
+<a name="Simple_Jpeg_Lib"></a>
+<a name="Simple_005fJpeg_005fLib"></a>
+Previous:&nbsp;<a rel="previous" accesskey="p" href="#Compiling">Compiling</a>,
+Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
+
+</div>
+
+<h2 class="chapter">3 Using the simple_jpeg_lib</h2>
+
+<h3 class="section">3.1 reading a jpeg file</h3>
+
+<pre class="example">     
+     with simple_jpeg_lib;
+     use simple_jpeg_lib;
+     
+     procedure test_jpeg_reader is
+     
+        J : Jpeg_Handle_decompress;
+        JC : Jpeg_Handle_Compress;
+        I:Integer := 0;
+     
+     begin
+     
+            -- open image, and decompress it with 1/8 of the original size
+           Open_Jpeg("sample.jpg",J,8);
+     
+           -- Get Informations
+           declare
+              W,H : Dimension ;
+              Jpegtype : Jpeg_Type;
+           begin
+              Get_Image_Info(J,W,H,jpegtype);
+     
+              Text_Io.Put(" Width :" &amp; dimension'Image(W)
+                          &amp; " , height " &amp; dimension'Image(h)
+                          &amp; " , nb comp : " &amp; Jpeg_type'Image(jpegtype) );
+     
+              Create_Jpeg("output.jpg",Jc,W,H,jpegtype);
+           end;
+     
+           declare
+           begin
+              while True loop
+                 declare
+                    Comp : Component_Array := Read_Next_Line(J);
+                 begin
+                    Write_Line(JC,Comp);
+                    I:=I+1; -- count the lines
+                 end;
+              end loop;
+           exception
+              when JPEG_EXCEPTION  =&gt;
+                 null;
+           end;
+     
+           Text_Io.New_Line;
+           Text_Io.Put( Integer'Image(I) &amp; " read Lines ");
+     
+           Close_Jpeg(J);
+           Close_Jpeg(jc);
+     
+           Text_Io.Put("End  ");
+           Text_Io.New_Line;
+     
+     exception
+             when E : others =&gt;
+                Text_IO.Put_Line (GNAT.Traceback.Symbolic.Symbolic_Traceback (E));
+     
+     end;
+     
+</pre>
+<h2 class="unnumbered">Concept Index</h2>
+
+<ul class="index-cp" compact>
+<li><a href="#index-Introduction-1">Introduction</a>: <a href="#Introduction">Introduction</a></li>
+</ul>
+<div class="contents">
+<h2>Table of Contents</h2>
+<ul>
+<li><a name="toc_Introduction" href="#Introduction">1 Introduction to the simple_jpeg_lib</a>
+<li><a name="toc_Compiling" href="#Compiling">2 Compiling Ada programs with the Simple_Jpeg_Lib</a>
+<ul>
+<ul>
+<li><a href="#Compiling">2.0.1 compiling the simple_jpeg_lib</a>
+<li><a href="#Compiling">2.0.2 compiling a program with the simple_jpeg_lib</a>
+</li></ul>
+</li></ul>
+<li><a name="toc_Simple_005fJpeg_005fLib" href="#Simple_005fJpeg_005fLib">3 Using the simple_jpeg_lib</a>
+<ul>
+<li><a href="#Simple_005fJpeg_005fLib">3.1 reading a jpeg file</a>
+</li></ul>
+<li><a name="toc_Simple_005fJpeg_005fLib" href="#Simple_005fJpeg_005fLib">Concept Index</a>
+</li></ul>
+</div>
+
+</body></html>
+

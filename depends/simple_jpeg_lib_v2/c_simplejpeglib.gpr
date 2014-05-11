@@ -1,0 +1,27 @@
+with "Dependencies/jpeg6b.gpr";
+
+Library project C_Simplejpeglib is
+
+   for Languages use ("c");
+   for Source_Dirs use ("src");
+   for Source_Files use ("c_simple_jpeg_lib.c");
+   for Object_Dir use "buildc";
+   for Library_Name use "csimplejpeglib";
+   for Library_Kind use "static";
+   for Library_Dir use "lib";
+
+   package Linker is
+      for Linker_Options use ("-LDependencies\lib");
+   end Linker;
+
+   package Naming is
+--      for Specification_Suffix ("c") use ".h";
+--      for Implementation_Suffix ("c") use ".c";
+   end Naming;
+
+   package Compiler is
+     -- DEBUG OPTIONS   for Switches ("c_simple_jpeg_lib.c") use ("-DDEBUG=TRUE");
+   end Compiler;
+
+end C_Simplejpeglib;
+

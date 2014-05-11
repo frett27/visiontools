@@ -1,0 +1,12 @@
+with "simplejpeglib";
+
+project TestSimpleJpegLib is
+
+
+   for Languages use ("Ada");
+   for Source_Dirs use ("test");
+   for Object_Dir use "build";
+   for Main use ("test_jpeg_reader.adb");
+
+end TestSimpleJpegLib;
+
