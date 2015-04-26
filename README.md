@@ -1,6 +1,8 @@
 Simple Vision Tools for Ada Projects
 ============
 
+![](https://travis-ci.org/frett27/visiontools.svg)
+
 __Patrice Freydiere - 2014.5.11__
 
 This is a library of Simple Vision Tools in Ada, for handling images in grey, binary and color (using RVB), 
