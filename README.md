@@ -1,4 +1,4 @@
-Vision Tools
+Simple Vision Tools for Ada Projects
 ============
 
 __Patrice Freydiere - 2014.5.11__
@@ -7,7 +7,7 @@ This is a library of Simple Vision Tools in Ada, for handling images in grey, bi
 a couple of simple functions are provided for :
 
 - Mathematical Morphology
-- Rescaling
+- Rescaling, Resampling
 - Reading and writing from / to JPEG and PPM ascii format
 
 This library is used for several personal projects i've been working on, but could be helpful for others.
@@ -26,9 +26,11 @@ Tested Environments :
 Usage :
 =======
 
-you must have gnat installed (use the ada standard 2005).
+you must have gnat installed (use the Ada standard 2005). The Gcc Ada frontend has been tested succesfully on Raspberry PI Model B.
 
-at the root of the project, launch
+
+
+for compiling the project, launch the following commands from a shell :
 
 `gprbuild vision.gpr` to compile the library
 
@@ -39,7 +41,8 @@ at the root of the project, launch
 External Libraries :
 ====================
 
-This library embedded libjpeg, and OpenImage 0.1, in a static way, so there are no external dependencies.
+This library embedded libjpeg, and OpenImage 0.1, in a static way, so there are no external dependencies. Embedding thoses libraries prevent also issues on compilation options.
+
 Compilation should run smoothly.
 
 
